@@ -22,8 +22,10 @@ const app = express();
 // Configure CORS
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://mama-cycle.vercel.app'] // Production frontend URL
-    : ['http://localhost:4200'],        // Development frontend URL
+    ? [
+        'https://mama-cycle.vercel.app',      // Vercel frontend URL
+      ] 
+    : ['http://localhost:4200'],              // Development frontend URL
   credentials: true,
   optionsSuccessStatus: 200
 };
