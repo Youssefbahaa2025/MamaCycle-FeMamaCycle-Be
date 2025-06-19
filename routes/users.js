@@ -146,10 +146,56 @@ router.put('/:id', async (req, res) => {
 
 // Upload image
 router.post('/:id/upload', profileUpload.single('image'), async (req, res) => {
-  // With Cloudinary, req.file contains secure_url for the uploaded image
-  const imagePath = req.file.secure_url;
-  await db.promise().execute('UPDATE users SET image = ? WHERE id = ?', [imagePath, req.params.id]);
-  res.json({ message: 'Profile picture uploaded', path: imagePath });
+  try {
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+    
+    console.log('User profile image upload:', req.file);
+    
+    // Get image path from the uploaded file
+    let imagePath;
+    
+    // With Cloudinary, check for secure_url first, then path
+    if (req.file.secure_url) {
+      imagePath = req.file.secure_url;
+    } else if (req.file.path) {
+      imagePath = req.file.path;
+    } else {
+      return res.status(500).json({ 
+        message: 'Invalid file format or Cloudinary error', 
+        error: 'No secure_url or path found in uploaded file' 
+      });
+    }
+    
+    // Convert undefined to null for MySQL
+    const safeImagePath = imagePath || null;
+    const userId = req.params.id || null;
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+    
+    console.log(`Updating profile image for user ${userId} with path: ${safeImagePath}`);
+    
+    await db.promise().execute('UPDATE users SET image = ? WHERE id = ?', [safeImagePath, userId]);
+    
+    res.json({ 
+      message: 'Profile picture uploaded',
+      path: safeImagePath 
+    });
+  } catch (error) {
+    console.error('Error uploading profile picture:', error);
+    res.status(500).json({ 
+      message: 'Failed to upload profile picture', 
+      error: error.message,
+      details: {
+        name: error.name,
+        code: error.code
+      }
+    });
+  }
 });
 
 module.exports = router;
