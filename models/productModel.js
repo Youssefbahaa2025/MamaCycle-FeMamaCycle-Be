@@ -37,11 +37,26 @@ exports.createProduct = ({ name, description, price, seller_id, type, condition,
     throw new Error('Invalid price value');
   }
 
+  // Ensure all values are defined and not undefined
+  // MySQL doesn't accept undefined - it needs null for null values
+  const safeValues = [
+    name || null,
+    description || null,
+    numericPrice || null,
+    status || 'pending',
+    seller_id || null,
+    type || null,
+    condition || null,
+    category_id || null
+  ];
+
+  console.log('Safe SQL values:', safeValues);
+  
   return db.promise().execute(
     `INSERT INTO products
       (name, description, price, status, seller_id, type, \`condition\`, category_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [name, description, numericPrice, status, seller_id, type, condition, category_id]
+    safeValues
   );
 };
 exports.getPendingProducts = () => {

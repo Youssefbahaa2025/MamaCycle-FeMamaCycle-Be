@@ -18,9 +18,20 @@ exports.getPrimaryImage = (productId) => {
 
 // Add a new image to a product
 exports.addImage = (productId, imagePath, isPrimary = 0) => {
+  // Ensure parameters are never undefined for MySQL
+  const safeProductId = productId || null;
+  const safeImagePath = imagePath || null;
+  const safeIsPrimary = isPrimary !== undefined ? isPrimary : 0;
+  
+  console.log('Adding product image:', {
+    productId: safeProductId,
+    imagePath: safeImagePath,
+    isPrimary: safeIsPrimary
+  });
+  
   return db.promise().execute(
     'INSERT INTO product_images (product_id, image_path, is_primary) VALUES (?, ?, ?)',
-    [productId, imagePath, isPrimary]
+    [safeProductId, safeImagePath, safeIsPrimary]
   );
 };
 

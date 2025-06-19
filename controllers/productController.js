@@ -84,6 +84,8 @@ exports.getById = async (req, res) => {
 exports.create = async (req, res) => {
   try {
     const { name, description, price, seller_id, type, condition, category_id, status } = req.body;
+    
+    // Validate required fields
     if (!name || !description || !price || !seller_id || !type || !category_id) {
       return res.status(400).json({ message: 'All fields are required!' });
     }
@@ -101,12 +103,20 @@ exports.create = async (req, res) => {
       name, description, price, seller_id, type, condition, category_id, status: productStatus 
     });
     
+    // Ensure all parameters have valid values for MySQL (convert undefined to null)
+    const safeProductData = {
+      name: name || null,
+      description: description || null,
+      price: price || null,
+      seller_id: seller_id || null,
+      type: type || null,
+      condition: condition || null,
+      category_id: category_id || null,
+      status: productStatus || 'pending' // Default to pending if null/undefined
+    };
+    
     // Insert product with the determined status
-    const [result] = await productModel.createProduct({
-      name, description, price, 
-      seller_id, type, condition, category_id,
-      status: productStatus
-    });
+    const [result] = await productModel.createProduct(safeProductData);
     
     if (!result || !result.insertId) {
       throw new Error('Failed to create product - no insert ID returned');
@@ -123,13 +133,24 @@ exports.create = async (req, res) => {
       const file = uploadedFiles[i];
       console.log('Processing file:', file);
       
-      if (!file || !file.path) {
+      if (!file) {
         console.error('Invalid file object:', file);
         continue;
       }
       
-      // Store Cloudinary secure URL directly
-      const imagePath = file.secure_url;
+      // Cloudinary integration - file has different properties
+      // secure_url is provided by Cloudinary through multer-storage-cloudinary
+      let imagePath;
+      if (file.secure_url) {
+        // Using Cloudinary 
+        imagePath = file.secure_url;
+      } else if (file.path) {
+        // Local file system
+        imagePath = file.path;
+      } else {
+        console.error('No valid image path found in uploaded file:', file);
+        continue;
+      }
       
       console.log('Adding image with path:', imagePath, 'isPrimary:', i === 0 ? 1 : 0);
       
@@ -259,13 +280,23 @@ exports.addProductImages = async (req, res) => {
     // Process uploaded images from Cloudinary
     const uploadedFiles = req.files;
     for (const file of uploadedFiles) {
-      if (!file || !file.path) {
+      if (!file) {
         console.error('Invalid file object:', file);
         continue;
       }
       
-      // Store Cloudinary secure URL directly
-      const imagePath = file.secure_url;
+      // Cloudinary integration - file has different properties
+      let imagePath;
+      if (file.secure_url) {
+        // Using Cloudinary 
+        imagePath = file.secure_url;
+      } else if (file.path) {
+        // Local file system
+        imagePath = file.path;
+      } else {
+        console.error('No valid image path found in uploaded file:', file);
+        continue;
+      }
       
       // If no images exist, make the first one primary
       const isPrimary = existingImages.length === 0 ? 1 : 0;
@@ -283,7 +314,14 @@ exports.addProductImages = async (req, res) => {
     res.status(201).json(imageUrls);
   } catch (err) {
     console.error(`Error adding images to product ${req.params.id}:`, err);
-    res.status(500).json({ message: 'Server error', error: err.message });
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: err.message,
+      details: {
+        name: err.name,
+        stack: err.stack
+      }
+    });
   }
 };
 
