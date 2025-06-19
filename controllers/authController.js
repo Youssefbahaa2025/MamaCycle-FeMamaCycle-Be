@@ -18,7 +18,7 @@ exports.login = async (req, res) => {
     if (!match) return res.status(401).json({ message: "Invalid credentials" });
 
     // Make sure JWT_SECRET has a strong default for development
-    const JWT_SECRET = process.env.JWT_SECRET;
+    const JWT_SECRET = process.env.JWT_SECRET || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MTYzMSwic3ViIjoiMTYzMSJ9';
     
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
