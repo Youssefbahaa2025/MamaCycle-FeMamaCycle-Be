@@ -1,9 +1,9 @@
 const db = require('../db');
 
-exports.createUser = (name, email, hashedPassword) => {
+exports.createUser = (name, email, hashedPassword, role) => {
   return db.promise().execute(
     'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-    [name, email, hashedPassword, 'user']
+    [name, email, hashedPassword, role]
   );
 };
 
