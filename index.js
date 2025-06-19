@@ -23,15 +23,28 @@ const app = express();
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production' 
     ? [
-        'https://mama-cycle.vercel.app',      // Vercel frontend URL
+        'https://mama-cycle.vercel.app',       // Vercel frontend URL
+        'https://mamacycle-grad-website.vercel.app', // Alternate Vercel URL
+        'http://mama-cycle.vercel.app',        // Allow HTTP too
+        'http://mamacycle-grad-website.vercel.app',
+        // Allow the production backend URL itself for self-referential requests
+        'https://mamacycle-marketplace-production.up.railway.app'
       ] 
-    : ['http://localhost:4200'],              // Development frontend URL
+    : '*',  // Allow all origins in development
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
 app.use(bodyParser.json());
+
+// API request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 
 // Serve static uploads folder
 // Any request to /uploads/<filename> will map to backend/uploads/<filename>
@@ -57,6 +70,11 @@ app.use('/api/chat', faqRoutes);
 app.get('/api/faq-list', (req, res) => {
   const faq = require('./bot/faq.json');
   res.json(faq.map(item => item.question));
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date() });
 });
 
 const PORT = process.env.PORT || 3000;
