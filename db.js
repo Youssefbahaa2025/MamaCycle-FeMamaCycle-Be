@@ -17,7 +17,7 @@ if (process.env.MYSQL_URL || process.env.DATABASE_URL) {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    ssl: false // Always disable SSL for local development
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
   };
   console.log(`Connecting to database at ${connectionConfig.host}:${connectionConfig.port}`);
 }
