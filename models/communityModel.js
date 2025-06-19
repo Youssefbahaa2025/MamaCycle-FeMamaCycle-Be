@@ -13,22 +13,32 @@ exports.getPosts = () => {
   );
 };
 exports.createPost = ({ title, content, snippet, image, author_id }) => {
+  // Ensure values are not undefined for MySQL (undefined is not allowed, null is)
+  const safeValues = [
+    title || null,
+    content || null,
+    snippet || null,
+    image || null,
+    author_id || null
+  ];
+  
   return db.promise().execute(
     'INSERT INTO community_posts (title, content, snippet, image, author_id) VALUES (?, ?, ?, ?, ?)',
-    [title, content, snippet, image, author_id]
+    safeValues
   );
 };
 
 exports.updatePost = ({ id, title, content, snippet, image }) => {
+  // Ensure values are not undefined for MySQL
   if (image) {
     return db.promise().execute(
       'UPDATE community_posts SET title = ?, content = ?, snippet = ?, image = ? WHERE id = ?',
-      [title, content, snippet, image, id]
+      [title || null, content || null, snippet || null, image || null, id || null]
     );
   } else {
     return db.promise().execute(
       'UPDATE community_posts SET title = ?, content = ?, snippet = ? WHERE id = ?',
-      [title, content, snippet, id]
+      [title || null, content || null, snippet || null, id || null]
     );
   }
 };
