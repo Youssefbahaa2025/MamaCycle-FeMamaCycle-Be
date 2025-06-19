@@ -1,0 +1,50 @@
+[
+    {
+        "question": "what is mamacycle",
+        "answer": "MamaCycle is an online marketplace for mothers to buy, sell, or rent gently used baby supplies, empowering families financially and promoting sustainability."
+    },
+    {
+        "question": "what problems does mamacycle solve",
+        "answer": "It addresses financial strain, short‑term use of baby items, environmental waste, and lack of community resource sharing."
+    },
+    {
+        "question": "how do i register or sign up",
+        "answer": "Click the Sign Up link in the navbar, fill in your name, email, phone, and password, then submit. You’ll receive a confirmation email before you can list items."
+    },
+    {
+        "question": "how do i list a product for sale",
+        "answer": "After logging in, go to Sell → Add Product, enter the title, description, price, upload clear photos, and click Submit. An admin will review and publish it."
+    },
+    {
+        "question": "how do i rent a product",
+        "answer": "Navigate to Rent → choose your category (e.g., strollers), select dates and item, then click Checkout to complete the rental."
+    },
+    {
+        "question": "what are the fees",
+        "answer": "MamaCycle charges a 15% commission on items below 1 000 EGP and 10% on items 1 000 EGP or above."
+    },
+    {
+        "question": "how can i pay",
+        "answer": "We support secure online payments via Visa or Cod or Instapay. You’ll enter your payment info at checkout."
+    },
+    {
+        "question": "how do i track my order or rental",
+        "answer": "Go to Orders in your profile. You’ll see status updates like ‘Out for Delivery’ or ‘Due for Return.’"
+    },
+    {
+        "question": "how do i leave feedback",
+        "answer": "Once your order completes, visit the product page or your order history and submit a rating and comment."
+    },
+    {
+        "question": "where can i ask parenting tips",
+        "answer": "Use the Community forum link in the navbar to join discussions and read articles on baby care and sustainable parenting."
+    },
+    {
+        "question": "what is the chatbot",
+        "answer": "Our built‑in assistant answers your questions about MamaCycle, product tips, parenting milestones, and more—just click the chat icon!"
+    },
+    {
+        "question": "how do i enable dark mode",
+        "answer": "Click the 🌙 Dark / ☀️ Light button in the navbar to toggle your theme; your preference is saved for next time."
+    }
+]

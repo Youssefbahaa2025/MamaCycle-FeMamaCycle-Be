@@ -1,0 +1,38 @@
+# Environment variables
+.env
+
+# Node.js dependencies
+node_modules/
+
+# Local uploads (since we'll be using Cloudinary)
+uploads/*
+!uploads/profiles/
+uploads/profiles/*
+!uploads/profiles/default.jpg
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.project
+.settings/
+
+# Temp files
+.tmp/
+temp/ 
