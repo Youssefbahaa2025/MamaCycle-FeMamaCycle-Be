@@ -1,7 +1,7 @@
 // backend/models/productModel.js
 const db = require('../db');
 
-exports.getAllProducts = () => db.promise().query(`
+exports.getAllProducts = () => db.query(`
   SELECT 
     p.*,
     c.category_name,
@@ -18,7 +18,7 @@ exports.getAllProducts = () => db.promise().query(`
   WHERE p.status = 'approved'
   GROUP BY p.id
 `);
-exports.getProductById = (id) => db.promise().query(`
+exports.getProductById = (id) => db.query(`
   SELECT
     p.*,
     c.category_id,
@@ -52,7 +52,7 @@ exports.createProduct = ({ name, description, price, seller_id, type, condition,
 
   console.log('Safe SQL values:', safeValues);
   
-  return db.promise().execute(
+  return db.execute(
     `INSERT INTO products
       (name, description, price, status, seller_id, type, \`condition\`, category_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -60,7 +60,7 @@ exports.createProduct = ({ name, description, price, seller_id, type, condition,
   );
 };
 exports.getPendingProducts = () => {
-  return db.promise().query(`
+  return db.query(`
     SELECT 
       p.*,
       c.category_name,
@@ -81,9 +81,9 @@ exports.getPendingProducts = () => {
 };
 
 exports.updateProductStatus = (id, status) => {
-  return db.promise().query('UPDATE products SET status = ? WHERE id = ?', [status, id]);
+  return db.query('UPDATE products SET status = ? WHERE id = ?', [status, id]);
 };
 
 exports.deleteProductById = (id) => {
-  return db.promise().query('DELETE FROM products WHERE id = ?', [id]);
+  return db.query('DELETE FROM products WHERE id = ?', [id]);
 };

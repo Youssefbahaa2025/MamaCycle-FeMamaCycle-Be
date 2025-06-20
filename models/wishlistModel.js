@@ -3,7 +3,7 @@ const db = require('../db');
 
 // Get all wishlist items for a user
 exports.getUserWishlist = (userId) => {
-  return db.promise().query(`
+  return db.query(`
     SELECT 
       w.id as wishlist_id,
       p.*,
@@ -26,7 +26,7 @@ exports.getUserWishlist = (userId) => {
 
 // Check if a product is in user's wishlist
 exports.isInWishlist = (userId, productId) => {
-  return db.promise().query(
+  return db.query(
     'SELECT * FROM wishlists WHERE user_id = ? AND product_id = ?',
     [userId, productId]
   );
@@ -34,7 +34,7 @@ exports.isInWishlist = (userId, productId) => {
 
 // Add product to wishlist
 exports.addToWishlist = (userId, productId) => {
-  return db.promise().execute(
+  return db.execute(
     'INSERT INTO wishlists (user_id, product_id) VALUES (?, ?)',
     [userId, productId]
   );
@@ -42,7 +42,7 @@ exports.addToWishlist = (userId, productId) => {
 
 // Remove product from wishlist
 exports.removeFromWishlist = (userId, productId) => {
-  return db.promise().execute(
+  return db.execute(
     'DELETE FROM wishlists WHERE user_id = ? AND product_id = ?',
     [userId, productId]
   );
@@ -50,7 +50,7 @@ exports.removeFromWishlist = (userId, productId) => {
 
 // Get wishlist count for a user
 exports.getWishlistCount = (userId) => {
-  return db.promise().query(
+  return db.query(
     'SELECT COUNT(*) as count FROM wishlists WHERE user_id = ?',
     [userId]
   );
@@ -58,7 +58,7 @@ exports.getWishlistCount = (userId) => {
 
 // Get notifications for wishlist items
 exports.getWishlistNotifications = (userId) => {
-  return db.promise().query(`
+  return db.query(`
     SELECT 
       wn.id as notification_id,
       wn.type,
@@ -78,7 +78,7 @@ exports.getWishlistNotifications = (userId) => {
 
 // Mark notification as read
 exports.markNotificationAsRead = (notificationId) => {
-  return db.promise().execute(
+  return db.execute(
     'UPDATE wishlist_notifications SET is_read = 1 WHERE id = ?',
     [notificationId]
   );
@@ -86,7 +86,7 @@ exports.markNotificationAsRead = (notificationId) => {
 
 // Create a notification
 exports.createNotification = (wishlistId, type) => {
-  return db.promise().execute(
+  return db.execute(
     'INSERT INTO wishlist_notifications (wishlist_id, type) VALUES (?, ?)',
     [wishlistId, type]
   );
@@ -94,7 +94,7 @@ exports.createNotification = (wishlistId, type) => {
 
 // Get unread notification count
 exports.getUnreadNotificationCount = (userId) => {
-  return db.promise().query(`
+  return db.query(`
     SELECT COUNT(*) as count 
     FROM wishlist_notifications wn
     JOIN wishlists w ON wn.wishlist_id = w.id

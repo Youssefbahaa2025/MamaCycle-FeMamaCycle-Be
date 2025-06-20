@@ -2,7 +2,7 @@ const db = require('../db');
 
 // Get all images for a product
 exports.getProductImages = (productId) => {
-  return db.promise().query(
+  return db.query(
     'SELECT * FROM product_images WHERE product_id = ? ORDER BY is_primary DESC, created_at ASC',
     [productId]
   );
@@ -10,7 +10,7 @@ exports.getProductImages = (productId) => {
 
 // Get primary image for a product
 exports.getPrimaryImage = (productId) => {
-  return db.promise().query(
+  return db.query(
     'SELECT * FROM product_images WHERE product_id = ? AND is_primary = 1 LIMIT 1',
     [productId]
   );
@@ -29,7 +29,7 @@ exports.addImage = (productId, imagePath, isPrimary = 0) => {
     isPrimary: safeIsPrimary
   });
   
-  return db.promise().execute(
+  return db.execute(
     'INSERT INTO product_images (product_id, image_path, is_primary) VALUES (?, ?, ?)',
     [safeProductId, safeImagePath, safeIsPrimary]
   );
@@ -65,7 +65,7 @@ exports.setPrimaryImage = async (imageId, productId) => {
 
 // Delete a product image
 exports.deleteImage = (imageId, productId) => {
-  return db.promise().execute(
+  return db.execute(
     'DELETE FROM product_images WHERE id = ? AND product_id = ?',
     [imageId, productId]
   );
@@ -73,7 +73,7 @@ exports.deleteImage = (imageId, productId) => {
 
 // Delete all images for a product
 exports.deleteAllProductImages = (productId) => {
-  return db.promise().execute(
+  return db.execute(
     'DELETE FROM product_images WHERE product_id = ?',
     [productId]
   );

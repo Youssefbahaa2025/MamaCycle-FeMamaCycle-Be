@@ -3,7 +3,7 @@ const db = require('../db');
 
 exports.getByPostId = (postId) => {
   // join to users so we can show commenter name & avatar
-  return db.promise().query(
+  return db.query(
     `SELECT c.id,
             c.message,
             c.post_id,
@@ -20,7 +20,7 @@ exports.getByPostId = (postId) => {
 };
 
 exports.getById = (commentId) => {
-  return db.promise().query(
+  return db.query(
     `SELECT id, message, post_id, user_id, created_at 
      FROM comments 
      WHERE id = ?`,
@@ -29,12 +29,12 @@ exports.getById = (commentId) => {
 };
 
 exports.create = ({ post_id, user_id, message }) => {
-  return db.promise().execute(
+  return db.execute(
     'INSERT INTO comments (post_id, user_id, message) VALUES (?, ?, ?)',
     [post_id, user_id, message]
   );
 };
 
 exports.delete = (commentId) => {
-  return db.promise().execute('DELETE FROM comments WHERE id = ?', [commentId]);
+  return db.execute('DELETE FROM comments WHERE id = ?', [commentId]);
 };

@@ -1,7 +1,7 @@
 // backend/models/communityModel.js
 const db = require('../db');
 exports.getPosts = () => {
-  return db.promise().query(
+  return db.query(
     `SELECT
         cp.*,
         u.name         AS author,
@@ -22,7 +22,7 @@ exports.createPost = ({ title, content, snippet, image, author_id }) => {
     author_id || null
   ];
   
-  return db.promise().execute(
+  return db.execute(
     'INSERT INTO community_posts (title, content, snippet, image, author_id) VALUES (?, ?, ?, ?, ?)',
     safeValues
   );
@@ -31,12 +31,12 @@ exports.createPost = ({ title, content, snippet, image, author_id }) => {
 exports.updatePost = ({ id, title, content, snippet, image }) => {
   // Ensure values are not undefined for MySQL
   if (image) {
-    return db.promise().execute(
+    return db.execute(
       'UPDATE community_posts SET title = ?, content = ?, snippet = ?, image = ? WHERE id = ?',
       [title || null, content || null, snippet || null, image || null, id || null]
     );
   } else {
-    return db.promise().execute(
+    return db.execute(
       'UPDATE community_posts SET title = ?, content = ?, snippet = ? WHERE id = ?',
       [title || null, content || null, snippet || null, id || null]
     );
@@ -44,11 +44,11 @@ exports.updatePost = ({ id, title, content, snippet, image }) => {
 };
 
 exports.deletePost = (id) => {
-  return db.promise().execute(
+  return db.execute(
     'DELETE FROM comments WHERE post_id = ?',
     [id]
   ).then(() => {
-    return db.promise().execute(
+    return db.execute(
       'DELETE FROM community_posts WHERE id = ?',
       [id]
     );
@@ -56,7 +56,7 @@ exports.deletePost = (id) => {
 };
 
 exports.getPostById = (id) => {
-  return db.promise().query(
+  return db.query(
     'SELECT * FROM community_posts WHERE id = ?',
     [id]
   );

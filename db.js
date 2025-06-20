@@ -17,18 +17,25 @@ if (process.env.MYSQL_URL || process.env.DATABASE_URL) {
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    // Connection pool settings
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
   };
   console.log(`Connecting to database at ${connectionConfig.host}:${connectionConfig.port}`);
 }
 
-// Create the connection
-const db = mysql.createConnection(connectionConfig);
+// Create connection pool instead of a single connection
+const pool = mysql.createPool(connectionConfig);
 
-// Connect with timeout handled properly
-db.connect((err) => {
+// Get a promise-based interface for the pool
+const db = pool.promise();
+
+// Test the pool connection to ensure it's working
+pool.getConnection((err, connection) => {
   if (err) {
-    console.error('DB connection error:', err.message);
+    console.error('DB connection pool error:', err.message);
     console.error('DB connection details:', {
       host: process.env.DB_HOST,
       port: process.env.DB_PORT,
@@ -40,7 +47,21 @@ db.connect((err) => {
     });
     console.log('Running in limited functionality mode without database connection');
   } else {
-    console.log('✅ MySQL connected successfully');
+    console.log('✅ MySQL connection pool established successfully');
+    connection.release(); // Release the connection back to the pool
+  }
+});
+
+// Handle pool errors
+pool.on('error', (err) => {
+  console.error('Unexpected database pool error:', err);
+  if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+    console.error('Database connection was closed. Attempting to reconnect...');
+    // The pool will automatically try to reconnect
+  } else if (err.code === 'ER_CON_COUNT_ERROR') {
+    console.error('Database has too many connections.');
+  } else if (err.code === 'ECONNREFUSED') {
+    console.error('Database connection was refused.');
   }
 });
 

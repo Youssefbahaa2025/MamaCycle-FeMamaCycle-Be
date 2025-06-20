@@ -1,7 +1,7 @@
 const db = require('../db');
 
 exports.getCart = (userId) => {
-  return db.promise().query(
+  return db.query(
     `SELECT c.id, p.name, p.price, c.quantity, 
      COALESCE(pi.image_path, p.image) as image,
      p.description
@@ -14,15 +14,15 @@ exports.getCart = (userId) => {
 };
 
 exports.addToCart = (userId, productId, quantity) => {
-  return db.promise().execute(
+  return db.execute(
     'INSERT INTO cart_items (user_id, product_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + ?',
     [userId, productId, quantity, quantity]
   );
 };
 
 exports.removeFromCart = (cartItemId) => {
-  return db.promise().execute('DELETE FROM cart_items WHERE id = ?', [cartItemId]);
+  return db.execute('DELETE FROM cart_items WHERE id = ?', [cartItemId]);
 };
 exports.updateQuantity = (id, quantity) => {
-  return db.promise().execute('UPDATE cart_items SET quantity = ? WHERE id = ?', [quantity, id]);
+  return db.execute('UPDATE cart_items SET quantity = ? WHERE id = ?', [quantity, id]);
 };
