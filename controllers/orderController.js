@@ -19,10 +19,10 @@ exports.checkout = async (req, res) => {
       throw new Error('Missing required checkout fields');
     }
 
-    // Use the connection for cart items query
+    // Use the connection for cart items query - Fixed table name from 'cart' to 'cart_items'
     const [cartItemsResult] = await connection.query(
       `SELECT c.*, p.price 
-       FROM cart c 
+       FROM cart_items c 
        JOIN products p ON c.product_id = p.id 
        WHERE c.user_id = ?`,
       [userId]
@@ -54,8 +54,8 @@ exports.checkout = async (req, res) => {
       );
     }
 
-    // Clear the cart
-    await connection.query('DELETE FROM cart WHERE user_id = ?', [userId]);
+    // Clear the cart - Fixed table name from 'cart' to 'cart_items'
+    await connection.query('DELETE FROM cart_items WHERE user_id = ?', [userId]);
     
     // Commit transaction
     await connection.commit();

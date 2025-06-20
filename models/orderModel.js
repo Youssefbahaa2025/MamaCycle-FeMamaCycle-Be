@@ -2,7 +2,7 @@
 const db = require('../db');
 exports.createOrder = async (userId, totalPrice, paymentMethod, address, phone) => {
     const [result] = await db.execute(
-      'INSERT INTO orders (user_id, total_price, payment_method, address, phone) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO orders (user_id, total_price, payment_method, shipping_address, phone) VALUES (?, ?, ?, ?, ?)',
       [userId, totalPrice, paymentMethod, address, phone]
     );
     return result.insertId;
