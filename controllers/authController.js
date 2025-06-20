@@ -18,7 +18,7 @@ exports.login = async (req, res) => {
     if (!match) return res.status(401).json({ message: "Invalid credentials" });
 
     // Make sure JWT_SECRET has a strong default for development
-    const JWT_SECRET = process.env.JWT_SECRET ;
+    const JWT_SECRET = process.env.JWT_SECRET || 'mamacycle-super-secure-jwt-secret-key-for-development-only';
     
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
