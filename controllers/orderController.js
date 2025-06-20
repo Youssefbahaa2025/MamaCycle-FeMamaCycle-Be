@@ -3,12 +3,10 @@ const orderModel = require('../models/orderModel');
 const db = require('../db');
 
 exports.checkout = async (req, res) => {
-  let connection;
+  // Create a connection from the pool for transaction
+  const connection = await db.getConnection();
   
   try {
-    // Use the connection from the pool
-    connection = await db.getConnection();
-    
     // Start transaction
     await connection.beginTransaction();
     
@@ -16,86 +14,97 @@ exports.checkout = async (req, res) => {
 
     // Validate required fields
     if (!userId || !paymentMethod || !address || !phone) {
-      throw new Error('Missing required checkout fields');
+      await connection.release();
+      return { error: 'Missing required fields' };
     }
 
-    // Use the connection for cart items query - Fixed table name from 'cart' to 'cart_items'
-    const [cartItemsResult] = await connection.query(
-      `SELECT c.*, p.price 
+    // Validate userId format
+    if (isNaN(parseInt(userId))) {
+      await connection.release();
+      return { error: 'Invalid user ID' };
+    }
+
+    // Get cart items using the transaction connection
+    const [cartItems] = await connection.query(
+      `SELECT c.product_id, c.quantity, p.price 
        FROM cart_items c 
        JOIN products p ON c.product_id = p.id 
        WHERE c.user_id = ?`,
       [userId]
     );
-    
-    if (cartItemsResult.length === 0) {
-      await connection.rollback();
-      return res.status(400).json({ message: 'Cart is empty' });
+
+    // Check if cart is empty
+    if (!cartItems || cartItems.length === 0) {
+      await connection.release();
+      return { error: 'Cart is empty' };
     }
 
     // Calculate total price
-    const totalPrice = cartItemsResult.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    // Create order
-    const [orderResult] = await connection.query(
-      `INSERT INTO orders (user_id, total_price, payment_method, shipping_address, phone) 
-       VALUES (?, ?, ?, ?, ?)`,
+    // Create order with transaction connection
+    const [orderResult] = await connection.execute(
+      'INSERT INTO orders (user_id, total_price, payment_method, address, phone) VALUES (?, ?, ?, ?, ?)',
       [userId, totalPrice, paymentMethod, address, phone]
     );
     
     const orderId = orderResult.insertId;
 
-    // Save items to order_items
-    for (const item of cartItemsResult) {
-      await connection.query(
-        `INSERT INTO order_items (order_id, product_id, quantity, price) 
-         VALUES (?, ?, ?, ?)`,
+    // Save items to order_items using transaction connection
+    for (const item of cartItems) {
+      await connection.execute(
+        'INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)',
         [orderId, item.product_id, item.quantity, item.price]
       );
     }
 
-    // Clear the cart - Fixed table name from 'cart' to 'cart_items'
-    await connection.query('DELETE FROM cart_items WHERE user_id = ?', [userId]);
+    // Clear the cart using transaction connection
+    await connection.execute('DELETE FROM cart_items WHERE user_id = ?', [userId]);
     
     // Commit transaction
     await connection.commit();
     
     // Release connection back to the pool
-    connection.release();
+    await connection.release();
     
-    return res.status(201).json({ 
-      message: 'Order placed successfully', 
-      orderId: orderId 
-    });
-    
+    return { orderId };
   } catch (error) {
-    console.error('Checkout error:', error);
-    
-    // If we have a connection, try to roll back
-    if (connection) {
-      try {
-        await connection.rollback();
-      } catch (rollbackError) {
-        console.error('Rollback failed:', rollbackError);
-      } finally {
-        connection.release(); // Always release connection back to pool
-      }
+    // Rollback in case of error
+    try {
+      await connection.rollback();
+    } catch (rollbackError) {
+      console.error('Rollback error:', rollbackError);
     }
     
-    return res.status(500).json({ message: 'Failed to place order: ' + error.message });
+    // Always release connection
+    try {
+      await connection.release();
+    } catch (releaseError) {
+      console.error('Error releasing connection:', releaseError);
+    }
+    
+    console.error('Checkout error:', error);
+    throw error;
   }
 };
 
 // Get order by ID with items and product details
 exports.getOrderById = async (orderId) => {
   try {
+    // Validate orderId
+    if (!orderId || isNaN(parseInt(orderId))) {
+      return { error: 'Invalid order ID' };
+    }
+    
     // Get the order
     const [orderRows] = await db.query(
       'SELECT o.*, u.name AS user_name FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ?',
       [orderId]
     );
     
-    if (!orderRows.length) return { error: 'Order not found' };
+    if (!orderRows || orderRows.length === 0) {
+      return { error: 'Order not found' };
+    }
     
     const order = orderRows[0];
     
@@ -125,6 +134,11 @@ exports.getOrderById = async (orderId) => {
 // Get all orders for a user
 exports.getUserOrders = async (userId) => {
   try {
+    // Validate userId
+    if (!userId || isNaN(parseInt(userId))) {
+      return { error: 'Invalid user ID' };
+    }
+    
     // Get all orders for the user
     const [orderRows] = await db.query(
       'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC',

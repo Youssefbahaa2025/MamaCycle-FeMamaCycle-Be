@@ -9,12 +9,11 @@ const { profileUpload } = require('../config/cloudinary');
 // Count users
 router.get('/count', async (req, res) => {
   try {
-    const [countRows] = await db.query('SELECT COUNT(*) as total FROM users');
-    const total = countRows[0].total;
-    res.json({ total, message: 'User count retrieved' });
+    const [rows] = await db.query('SELECT COUNT(*) as total FROM users');
+    res.json({ total: rows[0].total, message: 'User count retrieved' });
   } catch (error) {
     console.error('Error counting users:', error);
-    res.status(500).json({ message: 'Failed to count users', error: error.message });
+    res.status(500).json({ message: 'Failed to retrieve user count', error: error.message });
   }
 });
 
@@ -24,8 +23,8 @@ router.get('/admin/orders', verifyToken, isAdmin, async (req, res) => {
     console.log('Admin orders API called');
     
     // First, check if there are any orders in the database
-    const [orderCountRows] = await db.query('SELECT COUNT(*) as count FROM orders');
-    const orderCount = orderCountRows[0].count;
+    const [countRows] = await db.query('SELECT COUNT(*) as count FROM orders');
+    const orderCount = countRows[0].count;
     console.log('Order count:', orderCount);
     
     // If no orders exist, return an empty array
@@ -57,16 +56,17 @@ router.get('/admin/orders', verifyToken, isAdmin, async (req, res) => {
     // If there are no products, return empty image array
     let productImages = [];
     if (productIds.length > 0) {
-      // Format product IDs for IN clause
-      const productIdsString = productIds.join(',');
+      // Format product IDs for IN clause with parameterized query
+      const placeholders = productIds.map(() => '?').join(',');
       const [images] = await db.query(`
         SELECT 
           pi.product_id,
           pi.image_path,
           pi.is_primary
         FROM product_images pi
-        WHERE pi.product_id IN (${productIdsString})
-      `);
+        WHERE pi.product_id IN (${placeholders})
+      `, productIds);
+      
       productImages = images;
       console.log(`Found ${images.length} product images for ${productIds.length} products`);
     }
@@ -119,9 +119,27 @@ router.get('/admin/users', verifyToken, isAdmin, async (req, res) => {
 router.delete('/admin/users/:id', verifyToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    await db.query('DELETE FROM users WHERE id = ?', [id]);
-    res.json({ message: 'User deleted' });
+    
+    // Validate user ID
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+    
+    // Check if trying to delete admin account
+    const [admins] = await db.query('SELECT id FROM users WHERE id = ? AND role = "admin"', [id]);
+    if (admins.length > 0) {
+      return res.status(403).json({ message: 'Cannot delete admin account' });
+    }
+    
+    const [result] = await db.query('DELETE FROM users WHERE id = ?', [id]);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({ message: 'User deleted successfully' });
   } catch (error) {
+    console.error('Error deleting user:', error);
     res.status(500).json({ message: 'Failed to delete user', error: error.message });
   }
 });
@@ -130,13 +148,19 @@ router.delete('/admin/users/:id', verifyToken, isAdmin, async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const [rows] = await db.query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
     
-    if (rows.length === 0) {
+    // Validate id parameter
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+    
+    const [users] = await db.query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
+    
+    if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    const user = rows[0];
+    const user = users[0];
     
     // User's profile image is already a Cloudinary URL or use default
     user.image = user.image || 'https://res.cloudinary.com/dk0szadna/image/upload/v1/mamacycle/profiles/default';
@@ -144,7 +168,10 @@ router.get('/:id', async (req, res) => {
     res.json({ user });
   } catch (error) {
     console.error('Error fetching user profile:', error);
-    res.status(500).json({ message: 'Failed to fetch user profile', error: error.message });
+    res.status(500).json({ 
+      message: 'Failed to fetch user profile', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
 });
 
@@ -153,14 +180,35 @@ router.put('/:id', async (req, res) => {
   try {
     const { name, email } = req.body;
     const { id } = req.params;
-    await db.execute('UPDATE users SET name = ?, email = ? WHERE id = ?', [name, email, id]);
-    const [updatedUsers] = await db.query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
     
-    if (updatedUsers.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+    // Validate inputs
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ message: 'Invalid user ID' });
     }
     
-    const updatedUser = updatedUsers[0];
+    if (!name || !email) {
+      return res.status(400).json({ message: 'Name and email are required' });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+    
+    const [result] = await db.execute('UPDATE users SET name = ?, email = ? WHERE id = ?', [name, email, id]);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found or no changes made' });
+    }
+    
+    const [users] = await db.query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
+    
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User not found after update' });
+    }
+    
+    const updatedUser = users[0];
     
     // User's profile image is already a Cloudinary URL or use default
     updatedUser.image = updatedUser.image || 'https://res.cloudinary.com/dk0szadna/image/upload/v1/mamacycle/profiles/default';
@@ -168,13 +216,29 @@ router.put('/:id', async (req, res) => {
     res.json({ message: 'Profile updated', user: updatedUser });
   } catch (error) {
     console.error('Error updating profile:', error);
-    res.status(500).json({ message: 'Failed to update profile', error: error.message });
+    
+    // Handle duplicate email error specifically
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ message: 'Email already in use' });
+    }
+    
+    res.status(500).json({ 
+      message: 'Failed to update profile', 
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
 // Upload image
 router.post('/:id/upload', profileUpload.single('image'), async (req, res) => {
   try {
+    const { id } = req.params;
+    
+    // Validate user ID
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+    
     // Check if file was uploaded
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
@@ -197,17 +261,22 @@ router.post('/:id/upload', profileUpload.single('image'), async (req, res) => {
       });
     }
     
-    // Convert undefined to null for MySQL
-    const safeImagePath = imagePath || null;
-    const userId = req.params.id || null;
-    
-    if (!userId) {
-      return res.status(400).json({ message: 'User ID is required' });
+    // Check if user exists
+    const [users] = await db.query('SELECT id FROM users WHERE id = ?', [id]);
+    if (users.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
     }
     
-    console.log(`Updating profile image for user ${userId} with path: ${safeImagePath}`);
+    // Convert undefined to null for MySQL
+    const safeImagePath = imagePath || null;
     
-    await db.execute('UPDATE users SET image = ? WHERE id = ?', [safeImagePath, userId]);
+    console.log(`Updating profile image for user ${id} with path: ${safeImagePath}`);
+    
+    const [result] = await db.execute('UPDATE users SET image = ? WHERE id = ?', [safeImagePath, id]);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found or no changes made' });
+    }
     
     res.json({ 
       message: 'Profile picture uploaded',

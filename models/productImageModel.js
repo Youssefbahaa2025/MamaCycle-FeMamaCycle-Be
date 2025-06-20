@@ -37,9 +37,8 @@ exports.addImage = (productId, imagePath, isPrimary = 0) => {
 
 // Update primary status (set one image as primary, all others as non-primary)
 exports.setPrimaryImage = async (imageId, productId) => {
-  let conn;
+  const conn = await db.promise().getConnection();
   try {
-    conn = await db.getConnection();
     await conn.beginTransaction();
     
     // Set all images for this product as non-primary
@@ -57,14 +56,10 @@ exports.setPrimaryImage = async (imageId, productId) => {
     await conn.commit();
     return true;
   } catch (error) {
-    if (conn) {
-      await conn.rollback();
-    }
+    await conn.rollback();
     throw error;
   } finally {
-    if (conn) {
-      conn.release();
-    }
+    conn.release();
   }
 };
 
