@@ -6,14 +6,12 @@ const verifyToken = require('../middleware/authMiddleware');
 // Checkout endpoint
 router.post('/checkout', verifyToken, async (req, res) => {
   try {
-    const result = await orderController.checkout(req, res);
-    if (result.error) {
-      return res.status(400).json({ message: result.error });
-    }
-    res.status(201).json({ message: 'Order placed successfully', orderId: result.orderId });
+    // The controller now handles the response directly
+    await orderController.checkout(req, res);
   } catch (error) {
-    console.error('Checkout error:', error);
-    res.status(500).json({ message: 'Failed to place order' });
+    console.error('Checkout route error:', error);
+    // This should only execute if the controller didn't handle the response
+    res.status(500).json({ message: 'Failed to process checkout request' });
   }
 });
 
@@ -22,10 +20,15 @@ router.get('/:id', verifyToken, async (req, res) => {
   try {
     const orderId = req.params.id;
     const orderDetails = await orderController.getOrderById(orderId);
+    
+    if (orderDetails.error) {
+      return res.status(404).json({ message: orderDetails.error });
+    }
+    
     res.status(200).json(orderDetails);
   } catch (error) {
     console.error('Get order error:', error);
-    res.status(500).json({ message: 'Failed to get order details' });
+    res.status(500).json({ message: 'Failed to get order details', error: error.message });
   }
 });
 
@@ -37,7 +40,7 @@ router.get('/user/:userId', verifyToken, async (req, res) => {
     res.status(200).json(orders);
   } catch (error) {
     console.error('Get user orders error:', error);
-    res.status(500).json({ message: 'Failed to get user orders' });
+    res.status(500).json({ message: 'Failed to get user orders', error: error.message });
   }
 });
 

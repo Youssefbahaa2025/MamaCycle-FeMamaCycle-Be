@@ -8,8 +8,14 @@ const { profileUpload } = require('../config/cloudinary');
 
 // Count users
 router.get('/count', async (req, res) => {
-  const [[{ total }]] = await db.promise().query('SELECT COUNT(*) as total FROM users');
-  res.json({ total, message: 'User count retrieved' });
+  try {
+    const [countRows] = await db.query('SELECT COUNT(*) as total FROM users');
+    const total = countRows[0].total;
+    res.json({ total, message: 'User count retrieved' });
+  } catch (error) {
+    console.error('Error counting users:', error);
+    res.status(500).json({ message: 'Failed to count users', error: error.message });
+  }
 });
 
 // Admin orders view
@@ -18,16 +24,17 @@ router.get('/admin/orders', verifyToken, isAdmin, async (req, res) => {
     console.log('Admin orders API called');
     
     // First, check if there are any orders in the database
-    const [[orderCount]] = await db.promise().query('SELECT COUNT(*) as count FROM orders');
-    console.log('Order count:', orderCount.count);
+    const [orderCountRows] = await db.query('SELECT COUNT(*) as count FROM orders');
+    const orderCount = orderCountRows[0].count;
+    console.log('Order count:', orderCount);
     
     // If no orders exist, return an empty array
-    if (orderCount.count === 0) {
+    if (orderCount === 0) {
       return res.json({ orders: [], message: 'No orders found' });
     }
     
     // Get all orders with user names
-    const [orders] = await db.promise().query(`
+    const [orders] = await db.query(`
       SELECT o.*, u.name AS user_name FROM orders o 
       LEFT JOIN users u ON o.user_id = u.id 
       ORDER BY o.created_at DESC
@@ -35,7 +42,7 @@ router.get('/admin/orders', verifyToken, isAdmin, async (req, res) => {
     console.log(`Found ${orders.length} orders`);
     
     // Get all order items with product details
-    const [items] = await db.promise().query(`
+    const [items] = await db.query(`
       SELECT 
         oi.*,
         p.name AS product_name
@@ -52,7 +59,7 @@ router.get('/admin/orders', verifyToken, isAdmin, async (req, res) => {
     if (productIds.length > 0) {
       // Format product IDs for IN clause
       const productIdsString = productIds.join(',');
-      const [images] = await db.promise().query(`
+      const [images] = await db.query(`
         SELECT 
           pi.product_id,
           pi.image_path,
@@ -101,7 +108,7 @@ router.get('/admin/orders', verifyToken, isAdmin, async (req, res) => {
 // Admin: Get all users
 router.get('/admin/users', verifyToken, isAdmin, async (req, res) => {
   try {
-    const [users] = await db.promise().query('SELECT id, name, email, role, created_at FROM users');
+    const [users] = await db.query('SELECT id, name, email, role, created_at FROM users');
     res.json({ users });
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch users', error: error.message });
@@ -112,7 +119,7 @@ router.get('/admin/users', verifyToken, isAdmin, async (req, res) => {
 router.delete('/admin/users/:id', verifyToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    await db.promise().query('DELETE FROM users WHERE id = ?', [id]);
+    await db.query('DELETE FROM users WHERE id = ?', [id]);
     res.json({ message: 'User deleted' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete user', error: error.message });
@@ -121,27 +128,48 @@ router.delete('/admin/users/:id', verifyToken, isAdmin, async (req, res) => {
 
 // Get profile
 router.get('/:id', async (req, res) => {
-  const { id } = req.params;
-  const [[user]] = await db.promise().query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
-  if (!user) return res.status(404).json({ message: 'User not found' });
-  
-  // User's profile image is already a Cloudinary URL or use default
-  user.image = user.image || 'https://res.cloudinary.com/dk0szadna/image/upload/v1/mamacycle/profiles/default';
-  
-  res.json({ user });
+  try {
+    const { id } = req.params;
+    const [rows] = await db.query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const user = rows[0];
+    
+    // User's profile image is already a Cloudinary URL or use default
+    user.image = user.image || 'https://res.cloudinary.com/dk0szadna/image/upload/v1/mamacycle/profiles/default';
+    
+    res.json({ user });
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({ message: 'Failed to fetch user profile', error: error.message });
+  }
 });
 
 // Update profile
 router.put('/:id', async (req, res) => {
-  const { name, email } = req.body;
-  const { id } = req.params;
-  await db.promise().execute('UPDATE users SET name = ?, email = ? WHERE id = ?', [name, email, id]);
-  const [[updatedUser]] = await db.promise().query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
-  
-  // User's profile image is already a Cloudinary URL or use default
-  updatedUser.image = updatedUser.image || 'https://res.cloudinary.com/dk0szadna/image/upload/v1/mamacycle/profiles/default';
-  
-  res.json({ message: 'Profile updated', user: updatedUser });
+  try {
+    const { name, email } = req.body;
+    const { id } = req.params;
+    await db.execute('UPDATE users SET name = ?, email = ? WHERE id = ?', [name, email, id]);
+    const [updatedUsers] = await db.query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
+    
+    if (updatedUsers.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const updatedUser = updatedUsers[0];
+    
+    // User's profile image is already a Cloudinary URL or use default
+    updatedUser.image = updatedUser.image || 'https://res.cloudinary.com/dk0szadna/image/upload/v1/mamacycle/profiles/default';
+    
+    res.json({ message: 'Profile updated', user: updatedUser });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ message: 'Failed to update profile', error: error.message });
+  }
 });
 
 // Upload image
@@ -179,7 +207,7 @@ router.post('/:id/upload', profileUpload.single('image'), async (req, res) => {
     
     console.log(`Updating profile image for user ${userId} with path: ${safeImagePath}`);
     
-    await db.promise().execute('UPDATE users SET image = ? WHERE id = ?', [safeImagePath, userId]);
+    await db.execute('UPDATE users SET image = ? WHERE id = ?', [safeImagePath, userId]);
     
     res.json({ 
       message: 'Profile picture uploaded',

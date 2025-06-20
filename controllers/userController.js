@@ -6,7 +6,7 @@ const path = require('path');
 exports.getUserProfile = async (req, res) => {
   try {
     const { id } = req.params;
-    const [rows] = await db.promise().query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
+    const [rows] = await db.query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
     
     if (rows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
@@ -36,10 +36,16 @@ exports.updateUserProfile = async (req, res) => {
       return res.status(400).json({ message: 'Name and email are required' });
     }
 
-    await db.promise().query('UPDATE users SET name = ?, email = ? WHERE id = ?', [name, email, id]);
+    await db.query('UPDATE users SET name = ?, email = ? WHERE id = ?', [name, email, id]);
     
     // Get updated user data
-    const [[updatedUser]] = await db.promise().query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
+    const [updatedUsers] = await db.query('SELECT id, name, email, image FROM users WHERE id = ?', [id]);
+    
+    if (updatedUsers.length === 0) {
+      return res.status(404).json({ message: 'User not found after update' });
+    }
+    
+    const updatedUser = updatedUsers[0];
     
     res.json({ 
       message: 'Profile updated successfully',
@@ -63,7 +69,7 @@ exports.uploadProfileImage = async (req, res) => {
     const imagePath = `uploads/profiles/${req.file.filename}`;
 
     // Update database
-    await db.promise().query('UPDATE users SET image = ? WHERE id = ?', [imagePath, id]);
+    await db.query('UPDATE users SET image = ? WHERE id = ?', [imagePath, id]);
 
     // Return the full URL for the frontend
     res.json({ 

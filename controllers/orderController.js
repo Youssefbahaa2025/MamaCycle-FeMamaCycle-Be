@@ -3,40 +3,86 @@ const orderModel = require('../models/orderModel');
 const db = require('../db');
 
 exports.checkout = async (req, res) => {
-  const connection = db.promise();
+  let connection;
   
   try {
-    await connection.query('START TRANSACTION');
+    // Use the connection from the pool
+    connection = await db.getConnection();
+    
+    // Start transaction
+    await connection.beginTransaction();
     
     const { userId, paymentMethod, address, phone } = req.body;
 
-    const cartItems = await orderModel.getCartItems(userId);
-    if (cartItems.length === 0) {
-      await connection.query('ROLLBACK');
-      return { error: 'Cart is empty' };
+    // Validate required fields
+    if (!userId || !paymentMethod || !address || !phone) {
+      throw new Error('Missing required checkout fields');
+    }
+
+    // Use the connection for cart items query
+    const [cartItemsResult] = await connection.query(
+      `SELECT c.*, p.price 
+       FROM cart c 
+       JOIN products p ON c.product_id = p.id 
+       WHERE c.user_id = ?`,
+      [userId]
+    );
+    
+    if (cartItemsResult.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Cart is empty' });
     }
 
     // Calculate total price
-    const totalPrice = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const totalPrice = cartItemsResult.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
-    // Create order with new fields
-    const orderId = await orderModel.createOrder(userId, totalPrice, paymentMethod, address, phone);
+    // Create order
+    const [orderResult] = await connection.query(
+      `INSERT INTO orders (user_id, total_price, payment_method, shipping_address, phone) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [userId, totalPrice, paymentMethod, address, phone]
+    );
+    
+    const orderId = orderResult.insertId;
 
     // Save items to order_items
-    for (const item of cartItems) {
-      await orderModel.addOrderItem(orderId, item.product_id, item.quantity, item.price);
+    for (const item of cartItemsResult) {
+      await connection.query(
+        `INSERT INTO order_items (order_id, product_id, quantity, price) 
+         VALUES (?, ?, ?, ?)`,
+        [orderId, item.product_id, item.quantity, item.price]
+      );
     }
 
     // Clear the cart
-    await orderModel.clearCart(userId);
+    await connection.query('DELETE FROM cart WHERE user_id = ?', [userId]);
     
-    await connection.query('COMMIT');
+    // Commit transaction
+    await connection.commit();
     
-    return { orderId };
+    // Release connection back to the pool
+    connection.release();
+    
+    return res.status(201).json({ 
+      message: 'Order placed successfully', 
+      orderId: orderId 
+    });
+    
   } catch (error) {
-    await db.promise().query('ROLLBACK');
     console.error('Checkout error:', error);
-    throw error;
+    
+    // If we have a connection, try to roll back
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error('Rollback failed:', rollbackError);
+      } finally {
+        connection.release(); // Always release connection back to pool
+      }
+    }
+    
+    return res.status(500).json({ message: 'Failed to place order: ' + error.message });
   }
 };
 
@@ -44,7 +90,7 @@ exports.checkout = async (req, res) => {
 exports.getOrderById = async (orderId) => {
   try {
     // Get the order
-    const [orderRows] = await db.promise().query(
+    const [orderRows] = await db.query(
       'SELECT o.*, u.name AS user_name FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ?',
       [orderId]
     );
@@ -54,7 +100,7 @@ exports.getOrderById = async (orderId) => {
     const order = orderRows[0];
     
     // Get the order items with product details
-    const [itemRows] = await db.promise().query(
+    const [itemRows] = await db.query(
       `SELECT oi.*, p.name AS product_name, 
        (SELECT image_path FROM product_images WHERE product_id = p.id AND is_primary = 1 LIMIT 1) AS image 
        FROM order_items oi 
@@ -80,7 +126,7 @@ exports.getOrderById = async (orderId) => {
 exports.getUserOrders = async (userId) => {
   try {
     // Get all orders for the user
-    const [orderRows] = await db.promise().query(
+    const [orderRows] = await db.query(
       'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC',
       [userId]
     );
@@ -89,7 +135,7 @@ exports.getUserOrders = async (userId) => {
     
     // For each order, get the items
     for (const order of orderRows) {
-      const [itemRows] = await db.promise().query(
+      const [itemRows] = await db.query(
         `SELECT oi.*, p.name AS product_name, 
          (SELECT image_path FROM product_images WHERE product_id = p.id AND is_primary = 1 LIMIT 1) AS image 
          FROM order_items oi 
